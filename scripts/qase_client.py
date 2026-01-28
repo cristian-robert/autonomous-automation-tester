@@ -6,6 +6,8 @@ Usage:
   python qase_client.py projects                              # List projects
   python qase_client.py suites <project_code>                 # List suites
   python qase_client.py cases <project_code>                  # List cases
+  python qase_client.py search-cases <project_code> <query>   # Search cases by title
+  python qase_client.py get-case <project_code> <case_id>     # Get case details
   python qase_client.py create-suite <project_code> '<json>'  # Create suite
   python qase_client.py create-case <project_code> '<json>'   # Create case
   python qase_client.py create-run <project_code> '<json>'    # Create test run
@@ -16,6 +18,8 @@ Environment:
   QASE_API_TOKEN: Your Qase API token (required)
 
 Examples:
+  python qase_client.py search-cases PROJ "login"             # Find existing login tests
+  python qase_client.py get-case PROJ 42                      # Get full details of case #42
   python qase_client.py create-suite PROJ '{"title": "Auth Tests"}'
   python qase_client.py create-case PROJ '{"title": "Login works", "suite_id": 1, "severity": 2}'
   python qase_client.py create-run PROJ '{"title": "Smoke Run", "cases": [1,2,3]}'
@@ -147,6 +151,49 @@ def cmd_cases(project_code: str, suite_id: Optional[int] = None) -> list:
     ]
 
 
+def cmd_search_cases(project_code: str, query: str) -> list:
+    """Search for test cases by title/keyword. Use to check for existing cases before creating new ones."""
+    from urllib.parse import quote
+    endpoint = f"/case/{project_code}?search={quote(query)}"
+
+    response = get(endpoint)
+    cases = response.get("result", {}).get("entities", [])
+    return [
+        {
+            "id": c["id"],
+            "title": c["title"],
+            "suite_id": c.get("suite_id"),
+            "suite_title": c.get("suite", {}).get("title") if c.get("suite") else None,
+            "priority": c.get("priority"),
+            "severity": c.get("severity"),
+            "automation_status": c.get("automation"),
+            "status": c.get("status")
+        }
+        for c in cases
+    ]
+
+
+def cmd_get_case(project_code: str, case_id: int) -> dict:
+    """Get full details of a specific test case."""
+    response = get(f"/case/{project_code}/{case_id}")
+    c = response.get("result", {})
+    return {
+        "id": c.get("id"),
+        "title": c.get("title"),
+        "suite_id": c.get("suite_id"),
+        "description": c.get("description"),
+        "preconditions": c.get("preconditions"),
+        "postconditions": c.get("postconditions"),
+        "priority": c.get("priority"),
+        "severity": c.get("severity"),
+        "automation_status": c.get("automation"),
+        "steps": c.get("steps", []),
+        "tags": c.get("tags", []),
+        "created_at": c.get("created_at"),
+        "updated_at": c.get("updated_at")
+    }
+
+
 def cmd_create_suite(project_code: str, data: dict) -> dict:
     """Create a new test suite."""
     response = post(f"/suite/{project_code}", data)
@@ -263,6 +310,20 @@ def main():
                 sys.exit(1)
             suite_id = int(sys.argv[3]) if len(sys.argv) > 3 else None
             result = cmd_cases(sys.argv[2], suite_id)
+            print_json(result)
+
+        elif command == "search-cases":
+            if len(sys.argv) < 4:
+                print_error("Usage: search-cases <project_code> <query>", "usage")
+                sys.exit(1)
+            result = cmd_search_cases(sys.argv[2], sys.argv[3])
+            print_json(result)
+
+        elif command == "get-case":
+            if len(sys.argv) < 4:
+                print_error("Usage: get-case <project_code> <case_id>", "usage")
+                sys.exit(1)
+            result = cmd_get_case(sys.argv[2], int(sys.argv[3]))
             print_json(result)
 
         elif command == "create-suite":

@@ -5,7 +5,7 @@ description: Complete testing workflow from site discovery to test automation wi
 
 # Full Testing Workflow
 
-Complete autonomous workflow: Discover → Design → Qase → Automate → Run
+Complete autonomous workflow: Check Existing → Discover → Design → Qase → Automate → Run
 
 ## Trigger Phrases
 
@@ -25,6 +25,35 @@ Before starting, verify:
 ```
 
 If missing, ask user to configure.
+
+## Phase 0: CHECK EXISTING (MANDATORY)
+
+**Goal:** Check Qase for existing test cases before creating new ones
+
+**Use:** `qase-client` skill
+
+```bash
+# Search for existing cases by feature keywords
+python scripts/qase_client.py search-cases PROJ "login"
+python scripts/qase_client.py search-cases PROJ "navigation"
+python scripts/qase_client.py search-cases PROJ "homepage"
+
+# List existing suites
+python scripts/qase_client.py suites PROJ
+
+# Get details of existing cases if needed
+python scripts/qase_client.py get-case PROJ <case_id>
+```
+
+**Output:**
+- List of existing test cases and their coverage
+- Gaps that need new test cases
+- Existing Qase case IDs to reuse for automation
+
+**Decision:**
+- If comprehensive coverage exists → Skip to Phase 4 (Automate)
+- If partial coverage exists → Note existing IDs, create only missing cases
+- If no coverage exists → Continue with full workflow
 
 ## Phase 1: DISCOVER
 
@@ -130,6 +159,22 @@ python qase_client.py complete-run PROJ 1
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
+│ PHASE 0: CHECK EXISTING (MANDATORY)                         │
+│ • Search Qase for existing test cases                       │
+│ • Identify existing coverage                                │
+│ • Note gaps and reusable case IDs                          │
+│ Output: Existing coverage + gaps list                       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+          (if full coverage)    (if gaps exist)
+                    │                   │
+                    ▼                   ▼
+          Skip to Phase 4      Continue workflow
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
 │ PHASE 1: DISCOVER                                           │
 │ • Navigate site via mcp-client (Playwright)                 │
 │ • Map pages and classify types                              │
@@ -142,17 +187,17 @@ python qase_client.py complete-run PROJ 1
 │ PHASE 2: DESIGN                                             │
 │ • Apply test patterns by page type                          │
 │ • Assign P0/P1/P2 priorities                                │
-│ • Group into suites                                         │
-│ Output: Test case specifications                            │
+│ • Group into suites (skip existing cases)                   │
+│ Output: Test case specifications (gaps only)                │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ PHASE 3: SYNC TO QASE                                       │
-│ • Create suites via API                                     │
-│ • Create cases with steps                                   │
-│ • Record Qase IDs                                           │
-│ Output: Cases in Qase.io                                    │
+│ • Create suites via API (only if not exists)                │
+│ • Create cases with steps (gaps only)                       │
+│ • Record Qase IDs (existing + new)                          │
+│ Output: Complete case ID mapping                            │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -160,7 +205,7 @@ python qase_client.py complete-run PROJ 1
 │ PHASE 4: AUTOMATE                                           │
 │ • Generate page objects                                     │
 │ • Generate test specs                                       │
-│ • Link to Qase IDs                                          │
+│ • Link to Qase IDs (existing + new)                         │
 │ Output: Playwright test files                               │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -186,44 +231,58 @@ Claude: I'll help you test myplatform.com with Qase integration.
 ✓ QASE_PROJECT_CODE: MYPROJ
 ✓ Playwright MCP connected
 
+**Phase 0: Checking Existing Cases**
+Searching Qase for existing test cases...
+
+Found existing coverage:
+- Suite "Authentication" (ID: 1) - 3 cases
+  - Login with valid credentials (ID: 1)
+  - Login with invalid password (ID: 2)
+  - Logout successfully (ID: 3)
+- Suite "Navigation" (ID: 2) - 2 cases
+  - Main menu links work (ID: 4)
+  - Footer links work (ID: 5)
+
+Gaps identified:
+- No registration tests
+- No product listing tests
+- No cart/checkout tests
+
 **Phase 1: Discovery**
-Exploring myplatform.com...
+Exploring myplatform.com for gaps...
 
 Found 8 key pages:
 - / (Homepage)
-- /login (Auth)
-- /register (Auth)
-- /products (Listing)
-- /products/:id (Detail)
-- /cart (Transaction)
-- /checkout (Transaction)
+- /login (Auth - COVERED)
+- /register (Auth - GAP)
+- /products (Listing - GAP)
+- /products/:id (Detail - GAP)
+- /cart (Transaction - GAP)
+- /checkout (Transaction - GAP)
 - /account (Dashboard - requires auth)
 
 **Phase 2: Design**
-Designed 18 test cases across 4 suites:
-- Authentication (5 cases)
-- Navigation (3 cases)
-- Products (6 cases)
-- Cart (4 cases)
+Designed 12 NEW test cases (reusing 5 existing):
+- Authentication: +2 new (registration tests)
+- Products: +6 new
+- Cart: +4 new
 
-**Phase 3: Creating in Qase**
-✓ Created suite "Authentication" (ID: 1)
-✓ Created suite "Navigation" (ID: 2)
+**Phase 3: Creating in Qase (gaps only)**
+✓ Using existing suite "Authentication" (ID: 1)
 ✓ Created suite "Products" (ID: 3)
 ✓ Created suite "Cart" (ID: 4)
-✓ Created 18 test cases
+✓ Created 12 new test cases (cases 6-17)
 
-View: https://app.qase.io/project/MYPROJ
+Total coverage: 17 test cases (5 existing + 12 new)
 
 **Phase 4: Generating Tests**
 Created files:
 - pages/login.page.ts
 - pages/products.page.ts
 - pages/cart.page.ts
-- tests/auth.spec.ts
-- tests/navigation.spec.ts
-- tests/products.spec.ts
-- tests/cart.spec.ts
+- tests/auth.spec.ts (includes existing case IDs 1-5)
+- tests/products.spec.ts (case IDs 6-11)
+- tests/cart.spec.ts (case IDs 12-17)
 
 **Phase 5: Ready to Run**
 ```bash

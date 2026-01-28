@@ -27,14 +27,15 @@ You are a senior QA automation engineer. When users ask you to test a website, y
 ## Core Workflow
 
 ```
-DISCOVER → DESIGN → QASE → AUTOMATE → RUN
+CHECK EXISTING → DISCOVER → DESIGN → QASE → AUTOMATE → RUN
 ```
 
-1. **DISCOVER** (`site-discovery` + `mcp-client`) - Explore site, map pages, classify
-2. **DESIGN** (`automation-tester`) - Create test cases based on page types and risk
-3. **QASE** (`qase-client`) - Push suites and cases to Qase.io (MANDATORY)
-4. **AUTOMATE** (`test-generation`) - Generate Page Objects + Test Specs
-5. **RUN** - Execute tests, results auto-report to Qase
+1. **CHECK EXISTING** (`qase-client`) - **MANDATORY FIRST STEP**: Search Qase for existing test cases
+2. **DISCOVER** (`site-discovery` + `mcp-client`) - Explore site, map pages, classify
+3. **DESIGN** (`automation-tester`) - Create test cases based on page types and risk (only for gaps)
+4. **QASE** (`qase-client`) - Push NEW suites and cases to Qase.io (avoid duplicates)
+5. **AUTOMATE** (`test-generation`) - Generate Page Objects + Test Specs
+6. **RUN** - Execute tests, results auto-report to Qase
 
 ## MANDATORY: Page Object Pattern
 
@@ -151,15 +152,39 @@ Copy `.claude/skills/mcp-client/references/mcp-config.example.json` to `mcp-conf
 
 ## Qase Integration
 
-### Creating Test Cases
+### MANDATORY: Check Existing Cases First
+
+**Before creating ANY test cases, ALWAYS search Qase for existing coverage:**
 
 ```bash
 export QASE_API_TOKEN=your_token_here
 
-# Create suites
+# Search for existing cases by keyword
+python scripts/qase_client.py search-cases ATP "login"
+python scripts/qase_client.py search-cases ATP "checkout"
+python scripts/qase_client.py search-cases ATP "navigation"
+
+# Get full details of a specific case
+python scripts/qase_client.py get-case ATP 42
+
+# List all suites to understand structure
+python scripts/qase_client.py suites ATP
+```
+
+### Decision Flow
+
+1. **Search** for cases matching your feature keywords
+2. **If cases exist**: Review coverage → Identify gaps → Only create cases for uncovered scenarios
+3. **If no cases exist**: Create new suite (if needed) → Create new cases
+4. **Record ALL case IDs** (existing + new) for automation mapping
+
+### Creating Test Cases
+
+```bash
+# Create suites (only if not exists)
 python scripts/qase_client.py create-suite ATP '{"title": "Landing Page"}'
 
-# Create cases (use suite_id from above)
+# Create cases (only for gaps not covered by existing cases)
 python scripts/qase_client.py create-case ATP '{"title": "Page loads", "suite_id": 1, "severity": 1}'
 ```
 

@@ -31,6 +31,13 @@ python scripts/qase_client.py suites PROJ
 # List cases in a project
 python scripts/qase_client.py cases PROJ
 
+# Search for existing cases by keyword (ALWAYS DO THIS FIRST!)
+python scripts/qase_client.py search-cases PROJ "login"
+python scripts/qase_client.py search-cases PROJ "checkout"
+
+# Get full details of a specific case
+python scripts/qase_client.py get-case PROJ 42
+
 # Create a suite
 python scripts/qase_client.py create-suite PROJ '{"title": "Authentication Tests", "description": "Login and registration tests"}'
 
@@ -44,12 +51,48 @@ python scripts/qase_client.py create-run PROJ '{"title": "Smoke Test Run"}'
 python scripts/qase_client.py report-result PROJ 1 '{"case_id": 1, "status": "passed", "time_ms": 1500}'
 ```
 
+## MANDATORY: Check for Existing Cases First
+
+**Before creating any test cases, ALWAYS search Qase for existing cases:**
+
+```bash
+# Search for cases related to your feature
+python scripts/qase_client.py search-cases PROJ "feature_keyword"
+
+# If cases exist, get their full details
+python scripts/qase_client.py get-case PROJ <case_id>
+```
+
+This prevents duplicate test cases and ensures you build on existing test documentation.
+
+### Decision Flow
+
+```
+1. SEARCH for existing cases matching your feature
+2. IF cases exist:
+   - Review existing coverage
+   - Identify gaps
+   - Only create NEW cases for uncovered scenarios
+3. IF no cases exist:
+   - Create new suite (if needed)
+   - Create new cases
+4. Record all case IDs (existing + new) for automation
+```
+
 ## Workflow Integration
+
+### Before Creating Test Cases (MANDATORY)
+```
+1. Search for existing cases: search-cases PROJ "feature"
+2. List existing suites: suites PROJ
+3. Review what's already documented
+4. Only create what's missing
+```
 
 ### After Test Design
 ```
-1. Create suites for each feature area
-2. Create cases within each suite
+1. Create suites for each feature area (if not exists)
+2. Create cases within each suite (only new ones)
 3. Record Qase case IDs for automation mapping
 ```
 
