@@ -1,6 +1,6 @@
 # Autonomous Automation Tester
 
-> An AI-powered QA automation framework for Claude Code that autonomously discovers, designs, and implements end-to-end test suites with Qase.io integration.
+> A Claude Code skills blueprint that transforms Claude into an autonomous QA engineer capable of discovering, designing, and implementing end-to-end test suites with Qase.io integration.
 
 ```
      ___         __
@@ -19,17 +19,17 @@
 
 ---
 
-## Overview
+## What Is This?
 
-This framework transforms Claude Code into a **senior QA automation engineer** that can autonomously:
+This is **not** a traditional testing framework - it's a **skills blueprint for Claude Code**.
 
-- **Discover** website structure via browser automation
-- **Design** test cases based on risk and page types
-- **Sync** test suites to Qase.io test management
-- **Generate** Playwright test code with Page Object Model
-- **Execute** tests and report results back to Qase
+When you open this project in Claude Code and say **"Test [URL]"**, Claude becomes an autonomous QA engineer that will:
 
-Just say **"Test [URL]"** and watch the magic happen.
+1. **Discover** your website structure via browser automation
+2. **Design** test cases based on risk and page types
+3. **Sync** test suites to Qase.io test management
+4. **Generate** Playwright test code with Page Object Model
+5. **Execute** tests and report results back to Qase
 
 ---
 
@@ -47,30 +47,28 @@ Just say **"Test [URL]"** and watch the magic happen.
 
 ---
 
-## Quick Commands
+## Quick Start
 
-| You Say | Claude Does |
-|---------|-------------|
-| `Test https://mysite.com` | Full workflow: Discover → Qase → Automate |
-| `Explore https://mysite.com` | Site discovery and mapping only |
-| `Create test cases for mysite.com` | Design test cases + push to Qase |
-| `Automate the test cases` | Generate Playwright code from Qase cases |
-
----
-
-## Setup
-
-### 1. Clone and Install
+### 1. Clone This Blueprint
 
 ```bash
 git clone https://github.com/yourusername/autonomous-automation-tester.git
 cd autonomous-automation-tester
-npm install
 ```
 
-### 2. Configure Environment
+### 2. Initialize Playwright
 
-Copy the example environment file:
+This blueprint requires a Playwright project. Initialize one:
+
+```bash
+npm init -y
+npm install -D @playwright/test playwright-qase-reporter dotenv
+npx playwright install chromium
+```
+
+### 3. Configure Environment
+
+Copy and edit the environment file:
 
 ```bash
 cp .env.example .env
@@ -85,54 +83,149 @@ QASE_TESTOPS_PROJECT=ATP                     # Your project code in Qase
 QASE_MODE=testops                            # Enable Qase reporting
 ```
 
-### 3. Configure MCP (Browser Automation)
+### 4. Configure MCP (Optional - for Browser Discovery)
+
+If you want Claude to explore websites via browser automation:
 
 ```bash
 cp .claude/skills/mcp-client/references/mcp-config.example.json \
    .claude/skills/mcp-client/references/mcp-config.json
 ```
 
-### 4. Install Playwright Browsers
+### 5. Create Playwright Config
+
+Create `playwright.config.ts`:
+
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [
+    ['list'],
+    ['html'],
+    ['playwright-qase-reporter', {
+      mode: process.env.QASE_MODE || 'off',
+      debug: true,
+      testops: {
+        api: {
+          token: process.env.QASE_TESTOPS_API_TOKEN,
+        },
+        project: process.env.QASE_TESTOPS_PROJECT || 'ATP',
+        uploadAttachments: true,
+        run: {
+          complete: true,
+          title: 'Playwright Automated Test Run',
+        },
+      },
+    }],
+  ],
+  use: {
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+});
+```
+
+### 6. Open in Claude Code
 
 ```bash
-npx playwright install chromium
+claude
 ```
+
+Now just say: **"Test https://yoursite.com"**
 
 ---
 
-## Project Structure
+## Current Project Structure
 
 ```
 autonomous-automation-tester/
 ├── .claude/
-│   ├── settings.local.json          # Claude Code settings
-│   └── skills/                       # Modular skill system
-│       ├── automation-tester/        # Test planning & prioritization
-│       ├── site-discovery/           # Website exploration
+│   └── skills/                       # Claude Code skills (the brain)
+│       ├── automation-tester/        # Test planning & prioritization logic
+│       │   ├── SKILL.md
+│       │   └── references/
+│       │       ├── test-patterns.md  # Test patterns by page type
+│       │       └── priority-matrix.md
+│       ├── site-discovery/           # Website exploration logic
+│       │   ├── SKILL.md
+│       │   └── references/
+│       │       └── page-classification.md
 │       ├── qase-client/              # Qase.io integration
+│       │   ├── skill.md
+│       │   └── references/
+│       │       ├── qase-api.md
+│       │       └── qase-config.example.json
 │       ├── test-generation/          # Playwright code generation
+│       │   ├── SKILL.md
+│       │   └── references/
+│       │       └── templates.md
 │       ├── mcp-client/               # Browser automation via MCP
+│       │   ├── SKILL.md
+│       │   └── references/
+│       │       ├── mcp-servers.md
+│       │       └── mcp-config.example.json
 │       └── full-workflow/            # End-to-end orchestration
+│           └── SKILL.md
 ├── scripts/
 │   └── qase_client.py                # CLI for Qase API operations
+├── .env.example                      # Environment template
+├── CLAUDE.md                         # Main instructions for Claude
+├── README.md                         # This file
+└── .gitignore                        # Protects sensitive files
+```
+
+### After Running Tests (Generated by Claude)
+
+Claude will create these directories and files as needed:
+
+```
+autonomous-automation-tester/
+├── ...existing files...
+├── package.json                      # Node.js dependencies
+├── playwright.config.ts              # Playwright configuration
 ├── tests/                            # Generated test specs
 │   ├── auth.spec.ts
-│   └── navigation.spec.ts
-├── pages/                            # Generated Page Objects
-│   ├── login.page.ts
-│   └── products.page.ts
-├── .env.example                      # Environment template
-├── CLAUDE.md                         # Claude instructions
-└── playwright.config.ts              # Playwright configuration
+│   ├── navigation.spec.ts
+│   └── products.spec.ts
+└── pages/                            # Generated Page Objects
+    ├── login.page.ts
+    ├── products.page.ts
+    └── cart.page.ts
 ```
+
+---
+
+## Quick Commands
+
+| You Say | Claude Does |
+|---------|-------------|
+| `Test https://mysite.com` | Full workflow: Discover → Qase → Automate |
+| `Explore https://mysite.com` | Site discovery and mapping only |
+| `Create test cases for mysite.com` | Design test cases + push to Qase |
+| `Automate the test cases` | Generate Playwright code from Qase cases |
 
 ---
 
 ## Skills System
 
 The framework uses a modular **skills architecture** that gives Claude specialized capabilities:
-
-### Core Skills
 
 | Skill | Purpose | Triggers |
 |-------|---------|----------|
@@ -155,8 +248,6 @@ Test cases are automatically prioritized using a risk-based approach:
 | **P1** | Major feature broken | Search, filters, form validation |
 | **P2** | Minor/edge cases | Tooltips, animations, rare flows |
 
-### Decision Flowchart
-
 ```
 Can users complete their primary goal?
 ├── No → P0
@@ -174,6 +265,12 @@ Is it visible to most users?
 ---
 
 ## Qase.io Integration
+
+### Getting Your API Token
+
+1. Go to [Qase.io](https://app.qase.io)
+2. Navigate to **User Settings** → **API Tokens**
+3. Create a new token and copy it to your `.env` file
 
 ### Manual API Operations
 
@@ -196,9 +293,9 @@ python scripts/qase_client.py create-case ATP '{"title": "Valid login succeeds",
 python scripts/qase_client.py cases ATP
 ```
 
-### Playwright Integration
+### Playwright Test Integration
 
-Tests automatically report to Qase using the `playwright-qase-reporter`:
+Tests link to Qase using the `qase()` function:
 
 ```typescript
 import { test, expect } from '@playwright/test';
@@ -213,11 +310,13 @@ test(qase(1, 'Valid login redirects to dashboard'), async ({ page }) => {
 });
 ```
 
+The number in `qase(1, ...)` is the Qase case ID.
+
 ---
 
-## Test Patterns
+## Test Patterns Reference
 
-The framework includes pre-defined test patterns for common page types:
+The blueprint includes pre-defined test patterns for common page types:
 
 ### Authentication Pages
 
@@ -251,37 +350,9 @@ The framework includes pre-defined test patterns for common page types:
 
 ---
 
-## Browser Automation (MCP)
-
-The framework uses **Model Context Protocol (MCP)** servers for browser automation:
-
-```bash
-# Navigate to a URL
-python scripts/mcp_client.py call playwright browser_navigate '{"url": "https://example.com"}'
-
-# Take an accessibility snapshot (primary discovery tool)
-python scripts/mcp_client.py call playwright browser_snapshot '{}'
-
-# Click an element
-python scripts/mcp_client.py call playwright browser_click '{"element": "Login button"}'
-
-# Type into a field
-python scripts/mcp_client.py call playwright browser_type '{"element": "Email", "text": "user@test.com"}'
-```
-
-### Supported MCP Servers
-
-| Server | Purpose |
-|--------|---------|
-| **Playwright** | Browser navigation, snapshots, interactions |
-| **Sequential Thinking** | Structured problem-solving |
-| **GitHub** | Repository operations |
-| **Filesystem** | File access in allowed directories |
-| **Zapier** | 8,000+ app integrations |
-
----
-
 ## Running Tests
+
+After Claude generates your tests:
 
 ```bash
 # Run all tests (results sync to Qase automatically)
@@ -292,9 +363,6 @@ npx playwright test tests/auth.spec.ts
 
 # Run in headed mode (visible browser)
 npx playwright test --headed
-
-# Run specific browser
-npx playwright test --project=chromium
 
 # Disable Qase reporting (local only)
 QASE_MODE=off npx playwright test
@@ -308,16 +376,14 @@ npx playwright test --grep @smoke
 
 ## Autonomy Rules
 
-Claude makes decisions autonomously for:
-
+**Claude decides autonomously:**
 - Which pages to explore
 - Page type classification
 - Test case priorities (P0/P1/P2)
 - Selector strategies
 - Test file organization
 
-Claude asks you when:
-
+**Claude asks you when:**
 - Login credentials are needed
 - Payment/transaction testing is required
 - Destructive operations (delete account, etc.)
@@ -380,7 +446,7 @@ Created:
 • tests/cart.spec.ts
 
 **Ready to Run**
-npm install && npx playwright test
+npx playwright test
 Results will sync to Qase automatically.
 ```
 
@@ -392,36 +458,31 @@ Results will sync to Qase automatically.
 |------|---------|------------|
 | `.env` | API tokens and secrets | Yes |
 | `.env.example` | Template for .env | No |
-| `qase.config.json` | Alternative Qase config | Yes |
 | `mcp-config.json` | MCP server configuration | Yes |
 | `playwright.config.ts` | Playwright settings | No |
 
 ---
 
-## Contributing
+## Requirements
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
----
-
-## License
-
-MIT License - feel free to use this for your projects.
+- **Node.js** 18+
+- **Python** 3.8+ (for Qase client script)
+- **Claude Code** CLI
+- **Qase.io** account (free tier available)
 
 ---
 
 ## Links
 
-- [Qase.io Documentation](https://developers.qase.io/)
-- [Playwright Documentation](https://playwright.dev/)
-- [Claude Code](https://claude.ai/claude-code)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [Qase.io](https://qase.io) - Test management platform
+- [Playwright](https://playwright.dev) - Browser automation
+- [Claude Code](https://claude.ai/claude-code) - AI coding assistant
+- [Model Context Protocol](https://modelcontextprotocol.io) - MCP servers
 
 ---
 
 <p align="center">
-  <strong>Built for autonomous QA with Claude Code</strong>
+  <strong>A skills blueprint for autonomous QA with Claude Code</strong>
+  <br>
+  <em>Just say "Test [URL]" and let Claude do the rest.</em>
 </p>
