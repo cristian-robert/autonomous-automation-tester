@@ -61,9 +61,19 @@ cd autonomous-automation-tester
 This blueprint requires a Playwright project. Initialize one:
 
 ```bash
-npm init -y
-npm install -D @playwright/test playwright-qase-reporter dotenv
-npx playwright install chromium
+npm init playwright@latest
+```
+
+When prompted:
+- **TypeScript or JavaScript?** → TypeScript (recommended)
+- **Where to put tests?** → `tests`
+- **Add GitHub Actions workflow?** → Your choice
+- **Install Playwright browsers?** → Yes
+
+Then install additional dependencies:
+
+```bash
+npm install -D playwright-qase-reporter dotenv
 ```
 
 ### 3. Configure Environment
@@ -92,9 +102,9 @@ cp .claude/skills/mcp-client/references/mcp-config.example.json \
    .claude/skills/mcp-client/references/mcp-config.json
 ```
 
-### 5. Create Playwright Config
+### 5. Update Playwright Config
 
-Create `playwright.config.ts`:
+Modify your `playwright.config.ts` to add Qase reporter and dotenv:
 
 ```typescript
 import { defineConfig, devices } from '@playwright/test';
