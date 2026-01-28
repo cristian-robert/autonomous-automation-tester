@@ -1,0 +1,71 @@
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+*.env
+
+# Qase configuration (contains API tokens)
+qase.config.json
+
+# MCP configuration files (contain sensitive config)
+.claude/skills/*/references/*-config.json
+!.claude/skills/*/references/*-config.example.json
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Playwright
+playwright-report/
+playwright/.cache/
+test-results/
+blob-report/
+.playwright/
+
+# Build output
+dist/
+build/
+out/
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Secrets and keys
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+**/secrets/
+**/credentials/

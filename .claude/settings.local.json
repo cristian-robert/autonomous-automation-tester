@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor: Pure instruction-based blueprint with mcp-client pattern\n\n- Remove all Playwright framework scaffolding \\(config, fixtures, tests\\)\n- Add universal mcp-client skill following second-brain-skills pattern\n- Add qase-client skill for Qase.io API integration\n- Add automation-tester skill \\(QA mindset & test design\\)\n- Add site-discovery skill \\(website exploration\\)\n- Add test-generation skill \\(Playwright code generation\\)\n- Add full-workflow skill \\(end-to-end orchestration\\)\n- Update CLAUDE.md as concise persona\n- Add comprehensive README\n\nThe blueprint is now purely instructional - drop .claude/ and CLAUDE.md\ninto any project and Claude becomes an automation tester.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

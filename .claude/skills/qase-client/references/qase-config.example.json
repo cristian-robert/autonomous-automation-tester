@@ -1,0 +1,7 @@
+{
+  "qase": {
+    "api_token": "API_TOKEN",
+    "project_code": "PROJECT",
+    "base_url": "https://api.qase.io/v1"
+  }
+}

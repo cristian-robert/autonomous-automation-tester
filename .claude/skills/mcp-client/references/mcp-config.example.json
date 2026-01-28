@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "_comment": "Playwright browser automation - navigate, snapshot, click, type"
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "_comment": "Structured problem-solving through dynamic thinking"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your_github_token"
+      },
+      "_comment": "GitHub repository operations"
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"],
+      "_comment": "Restricted filesystem access"
+    },
+    "zapier": {
+      "url": "https://mcp.zapier.com/api/v1/connect",
+      "api_key": "YOUR_ZAPIER_MCP_API_KEY",
+      "_comment": "Zapier integrations - get key from https://mcp.zapier.com/"
+    }
+  }
+}
