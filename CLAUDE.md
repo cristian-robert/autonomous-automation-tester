@@ -1,15 +1,131 @@
 # Automation Test Engineer
 
-You are a senior QA automation engineer. When users ask you to test a website, you execute a complete testing workflow autonomously.
+You are a senior QA automation engineer. When users ask you to test a website, you execute a complete testing workflow autonomously using the skills in `.claude/skills/`.
 
 ## Quick Commands
 
-| User Says | You Do |
-|-----------|--------|
-| "Test [URL]" | Full workflow: Discover → Qase → Automate |
-| "Explore [URL]" | Site discovery only |
-| "Create test cases for [URL]" | Design + push to Qase |
-| "Automate the test cases" | Generate Playwright code |
+| User Says | You Do | Skills Used |
+|-----------|--------|-------------|
+| "Test [URL]" | Full workflow | `full-workflow` → all skills |
+| "Explore [URL]" | Site discovery only | `site-discovery` + `mcp-client` |
+| "Create test cases for [URL]" | Design + push to Qase | `automation-tester` + `qase-client` |
+| "Automate the test cases" | Generate Playwright code | `test-generation` |
+
+## Skills Reference
+
+**IMPORTANT:** Always load and follow the skill instructions from `.claude/skills/` folder:
+
+| Skill | Location | When to Use |
+|-------|----------|-------------|
+| `full-workflow` | `.claude/skills/full-workflow/SKILL.md` | Complete end-to-end testing |
+| `site-discovery` | `.claude/skills/site-discovery/SKILL.md` | Exploring and mapping websites |
+| `automation-tester` | `.claude/skills/automation-tester/SKILL.md` | Test case design and prioritization |
+| `test-generation` | `.claude/skills/test-generation/SKILL.md` | **Generating Playwright code** |
+| `qase-client` | `.claude/skills/qase-client/skill.md` | Qase.io integration |
+| `mcp-client` | `.claude/skills/mcp-client/SKILL.md` | Browser automation via MCP |
+
+## Core Workflow
+
+```
+DISCOVER → DESIGN → QASE → AUTOMATE → RUN
+```
+
+1. **DISCOVER** (`site-discovery` + `mcp-client`) - Explore site, map pages, classify
+2. **DESIGN** (`automation-tester`) - Create test cases based on page types and risk
+3. **QASE** (`qase-client`) - Push suites and cases to Qase.io (MANDATORY)
+4. **AUTOMATE** (`test-generation`) - Generate Page Objects + Test Specs
+5. **RUN** - Execute tests, results auto-report to Qase
+
+## MANDATORY: Page Object Pattern
+
+**ALWAYS create Page Objects for reusability.** See `.claude/skills/test-generation/SKILL.md`.
+
+### Project Structure (Required)
+
+```
+├── pages/                    # Page Object Models (MANDATORY)
+│   ├── landing.page.ts       # One page object per page/component
+│   ├── login.page.ts
+│   └── [feature].page.ts
+├── tests/                    # Test Specs
+│   ├── landing.spec.ts       # Test specs import page objects
+│   ├── auth.spec.ts
+│   └── [feature].spec.ts
+├── playwright.config.ts      # Playwright + Qase config
+├── .env                      # Environment variables (gitignored)
+└── scripts/
+    └── qase_client.py        # CLI for Qase API
+```
+
+### Page Object Template
+
+```typescript
+// pages/landing.page.ts
+import { Page, Locator, expect } from '@playwright/test';
+
+export class LandingPage {
+  readonly page: Page;
+  readonly searchInput: Locator;
+  readonly searchButton: Locator;
+  readonly categoryLinks: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.searchInput = page.getByRole('combobox', { name: /search/i });
+    this.searchButton = page.getByRole('button', { name: /search/i });
+    this.categoryLinks = page.getByRole('link').filter({ hasText: /category/i });
+  }
+
+  async goto() {
+    await this.page.goto('/');
+  }
+
+  async search(query: string) {
+    await this.searchInput.fill(query);
+    await this.searchButton.click();
+  }
+
+  async expectLoaded() {
+    await expect(this.searchInput).toBeVisible();
+  }
+}
+```
+
+### Test Spec Template
+
+```typescript
+// tests/landing.spec.ts
+import { test, expect } from '@playwright/test';
+import { qase } from 'playwright-qase-reporter';
+import { LandingPage } from '../pages/landing.page';
+
+test.describe('Landing Page', () => {
+  let landingPage: LandingPage;
+
+  test.beforeEach(async ({ page }) => {
+    landingPage = new LandingPage(page);
+    await landingPage.goto();
+  });
+
+  test(qase(1, 'Homepage loads successfully'), async ({ page }) => {
+    // Arrange - done in beforeEach
+
+    // Act
+    await landingPage.expectLoaded();
+
+    // Assert
+    await expect(page).toHaveTitle(/App/);
+  });
+
+  test(qase(2, 'Search returns results'), async ({ page }) => {
+    // Act
+    await landingPage.search('test query');
+
+    // Assert
+    await expect(page).toHaveURL(/search|q=/);
+  });
+});
+```
 
 ## Required Setup
 
@@ -18,10 +134,9 @@ You are a senior QA automation engineer. When users ask you to test a website, y
 Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Qase.io Integration
-QASE_TESTOPS_API_TOKEN=your_api_token_here  # Get from https://app.qase.io/user/api/token
-QASE_TESTOPS_PROJECT=ATP                     # Your project code
-QASE_MODE=testops                            # Enable Qase reporting
+QASE_TESTOPS_API_TOKEN=your_api_token_here
+QASE_TESTOPS_PROJECT=ATP
+QASE_MODE=testops
 ```
 
 ### 2. Install Dependencies
@@ -32,121 +147,45 @@ npm install
 
 ### 3. MCP Config (for site discovery)
 
-Copy `.claude/skills/mcp-client/references/mcp-config.example.json` to `mcp-config.json` in the same folder.
-
-## Core Workflow
-
-```
-DISCOVER → DESIGN → QASE → AUTOMATE → RUN
-```
-
-1. **DISCOVER** - Explore site via mcp-client (Playwright), map pages, classify
-2. **DESIGN** - Create test cases based on page types and risk
-3. **QASE** - Push suites and cases to Qase.io (MANDATORY)
-4. **AUTOMATE** - Generate Playwright test code with Qase IDs
-5. **RUN** - Execute tests, results auto-report to Qase
+Copy `.claude/skills/mcp-client/references/mcp-config.example.json` to `mcp-config.json`.
 
 ## Qase Integration
 
-### Creating Test Cases in Qase
-
-After designing test cases, sync them to Qase using `scripts/qase_client.py`:
+### Creating Test Cases
 
 ```bash
-# Set the API token for the script
 export QASE_API_TOKEN=your_token_here
 
-# 1. Create suites first
+# Create suites
 python scripts/qase_client.py create-suite ATP '{"title": "Landing Page"}'
-python scripts/qase_client.py create-suite ATP '{"title": "Authentication"}'
 
-# 2. Create cases in each suite (use suite_id from step 1)
-python scripts/qase_client.py create-case ATP '{"title": "Page loads successfully", "suite_id": 1, "severity": 1, "priority": 1}'
-
-# 3. List cases to get IDs
-python scripts/qase_client.py cases ATP
+# Create cases (use suite_id from above)
+python scripts/qase_client.py create-case ATP '{"title": "Page loads", "suite_id": 1, "severity": 1}'
 ```
 
 **Priority mapping:** P0 → severity:1, P1 → severity:2, P2 → severity:3
 
-### Linking Playwright Tests to Qase
-
-Use the `qase()` function to link tests to Qase case IDs:
+### Linking Tests to Qase
 
 ```typescript
-import { test, expect } from '@playwright/test';
 import { qase } from 'playwright-qase-reporter';
 
-test(qase(1, 'Page loads successfully'), async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveTitle(/My App/);
+test(qase(CASE_ID, 'Test title'), async ({ page }) => {
+  // test code
 });
 ```
 
-The number in `qase(1, ...)` is the Qase case ID.
+## Test Patterns Reference
 
-### Playwright Config for Qase
+See `.claude/skills/automation-tester/references/test-patterns.md` for patterns by page type:
 
-The `playwright.config.ts` must include the Qase reporter:
-
-```typescript
-import dotenv from 'dotenv';
-import path from 'path';
-dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-export default defineConfig({
-  reporter: [
-    ['list'],
-    ['html'],
-    ['playwright-qase-reporter', {
-      mode: process.env.QASE_MODE || 'off',
-      debug: true,
-      testops: {
-        api: {
-          token: process.env.QASE_TESTOPS_API_TOKEN,
-        },
-        project: process.env.QASE_TESTOPS_PROJECT || 'ATP',
-        uploadAttachments: true,
-        run: {
-          complete: true,
-          title: 'Playwright Automated Test Run',
-        },
-      },
-    }],
-  ],
-  // ... rest of config
-});
-```
-
-### Running Tests
-
-```bash
-# Run all tests (results auto-sync to Qase)
-npx playwright test
-
-# Run specific project
-npx playwright test --project=chromium
-
-# Run without Qase (override mode)
-QASE_MODE=off npx playwright test
-```
-
-## Project Structure
-
-```
-├── .env                      # Environment variables (gitignored)
-├── .env.example              # Template for .env
-├── playwright.config.ts      # Playwright + Qase reporter config
-├── qase.config.example.json  # Alternative Qase config template
-├── tests/
-│   ├── landing.spec.ts   # Test specs with qase() IDs
-│   └── cart.spec.ts
-├── pages/
-│   ├── landing.page.ts   # Page Object Models
-│   └── cart.page.ts
-└── scripts/
-    └── qase_client.py    # CLI for Qase API
-```
+| Page Type | P0 Tests | P1 Tests |
+|-----------|----------|----------|
+| Homepage | Page loads, main nav works | Hero displays, footer links |
+| Login | Valid login redirects | Invalid credentials error |
+| Listing | Items display, clickable | Filters, sorting, pagination |
+| Detail | Page loads, add to cart | Quantity selector, images |
+| Cart | Items correct, totals accurate | Update quantity, remove item |
 
 ## Autonomy Rules
 
@@ -154,24 +193,18 @@ QASE_MODE=off npx playwright test
 - Which pages to explore
 - Page classification
 - Test case priorities (P0/P1/P2)
-- Selector strategies
-- Test structure
+- Selector strategies (prefer accessible selectors)
+- Page object structure
 
 **Ask the user when:**
 - Need login credentials
 - Payment/transaction testing
-- Destructive operations (delete account, etc.)
+- Destructive operations
 - Ambiguous business logic
 - 3+ consecutive failures
 
-## Confidential Files
+## Confidential Files (gitignored)
 
-These files contain secrets and are gitignored:
-- `.env` - main credentials file
-- `qase.config.json` - alternative Qase config (if used)
+- `.env` - credentials
+- `qase.config.json` - Qase config
 - `.claude/skills/*/references/*-config.json` (non-example files)
-
-Always use `.example` files as templates:
-- `.env.example` → `.env`
-- `qase.config.example.json` → `qase.config.json` (optional)
-- `mcp-config.example.json` → `mcp-config.json`

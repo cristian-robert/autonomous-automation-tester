@@ -69,3 +69,9 @@ credentials.json
 secrets.json
 **/secrets/
 **/credentials/
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
