@@ -8,32 +8,119 @@
 ```json
 "playwright": {
   "command": "npx",
-  "args": ["@anthropic/mcp-playwright"]
+  "args": ["@playwright/mcp@latest"]
 }
 ```
 
-**Key Tools:**
+### CRITICAL: Session Behavior
 
-| Tool | Purpose | Example Args |
-|------|---------|--------------|
-| `browser_navigate` | Open a URL | `{"url": "https://example.com"}` |
-| `browser_snapshot` | Get accessibility tree | `{}` |
-| `browser_screenshot` | Capture visual | `{}` |
-| `browser_click` | Click element | `{"element": "Submit button"}` |
-| `browser_type` | Type into field | `{"element": "Email", "text": "user@test.com"}` |
-| `browser_hover` | Hover for menus | `{"element": "Products menu"}` |
-| `browser_select_option` | Select dropdown | `{"element": "Country", "value": "US"}` |
+**Each MCP tool call creates a NEW browser session!**
 
-**Usage for Testing:**
+- `browser_navigate` → Opens new browser, navigates, returns snapshot, browser closes
+- `browser_click` → Opens new browser (fresh page!), clicks, browser closes
+- `browser_snapshot` → If called right after navigate in same MCP session, uses existing browser
+
+**For multi-step operations, use `browser_run_code`!**
+
+### Key Tools
+
+| Tool | Session | Purpose | Example Args |
+|------|---------|---------|--------------|
+| `browser_navigate` | New | Open URL, get snapshot | `{"url": "https://example.com"}` |
+| **`browser_run_code`** | **Single** | **Run multiple steps** | `{"code": "await page.goto('...')"}` |
+| `browser_snapshot` | Reuse | Get accessibility tree | `{}` |
+| `browser_screenshot` | Reuse | Capture visual | `{}` |
+| `browser_click` | New | Click element | `{"element": "Submit button"}` |
+| `browser_type` | New | Type into field | `{"element": "Email", "text": "user@test.com"}` |
+| `browser_hover` | New | Hover for menus | `{"element": "Products menu"}` |
+| `browser_select_option` | New | Select dropdown | `{"element": "Country", "value": "US"}` |
+
+### Recommended Workflows
+
+#### Simple Page Load (Use `browser_navigate`)
 ```bash
-# Navigate
-python mcp_client.py call playwright browser_navigate '{"url": "https://mysite.com"}'
+python mcp_client.py call playwright browser_navigate '{"url": "https://example.com"}'
+```
+Returns page content AND accessibility snapshot in one call.
 
-# Get page structure (primary tool for test discovery)
-python mcp_client.py call playwright browser_snapshot '{}'
+#### Multi-Step (Use `browser_run_code`)
+```bash
+python mcp_client.py call playwright browser_run_code '{
+  "code": "
+    await page.goto(\"https://example.com\");
 
-# Interact
-python mcp_client.py call playwright browser_click '{"element": "Login button"}'
+    // Accept cookies if present
+    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
+    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Click navigation
+    await page.getByRole(\"link\", { name: /products/i }).click();
+    await page.waitForLoadState(\"networkidle\");
+
+    // Return final state
+    const snapshot = await page.accessibility.snapshot();
+    return JSON.stringify({ url: page.url(), snapshot }, null, 2);
+  "
+}'
+```
+
+#### Form Exploration
+```bash
+python mcp_client.py call playwright browser_run_code '{
+  "code": "
+    await page.goto(\"https://example.com/login\");
+
+    // Get all form elements with attributes
+    const inputs = await page.locator(\"input\").evaluateAll(els =>
+      els.map(e => ({
+        type: e.type,
+        name: e.name,
+        id: e.id,
+        placeholder: e.placeholder,
+        testid: e.dataset.testid,
+        ariaLabel: e.getAttribute(\"aria-label\")
+      }))
+    );
+
+    const buttons = await page.locator(\"button\").evaluateAll(els =>
+      els.map(e => ({
+        text: e.textContent?.trim(),
+        type: e.type,
+        testid: e.dataset.testid
+      }))
+    );
+
+    return JSON.stringify({ inputs, buttons }, null, 2);
+  "
+}'
+```
+
+#### Menu/Dropdown Behavior Discovery
+```bash
+python mcp_client.py call playwright browser_run_code '{
+  "code": "
+    await page.goto(\"https://example.com\");
+
+    // Click menu item
+    const menuItem = page.getByRole(\"link\", { name: /Category/i }).first();
+    await menuItem.click();
+    await page.waitForTimeout(1000);
+
+    // Check if it navigated or opened submenu
+    const didNavigate = !page.url().endsWith(\"/\");
+    const submenu = await page.locator(\"[class*=submenu], [class*=dropdown]\").isVisible().catch(() => false);
+
+    const snapshot = await page.accessibility.snapshot();
+    return JSON.stringify({
+      clickResult: didNavigate ? \"navigated\" : submenu ? \"opened_submenu\" : \"unknown\",
+      url: page.url(),
+      snapshot
+    }, null, 2);
+  "
+}'
 ```
 
 ---

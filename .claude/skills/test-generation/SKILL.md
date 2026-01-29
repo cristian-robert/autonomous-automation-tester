@@ -7,6 +7,31 @@ description: Playwright test code generation from test case specifications. Use 
 
 Generate Playwright test code from test case designs.
 
+## MANDATORY: Use Discovered Data, Not Assumptions
+
+**⚠️ NEVER write tests with assumed error messages, selectors, or behaviors!**
+
+Before writing ANY test that asserts on:
+- Error messages → Discover the actual text first
+- Validation messages → Discover HTML5 or custom validation first
+- Element selectors → Discover from accessibility snapshot first
+- Success states → Discover redirect URL or success message first
+
+```typescript
+// ❌ WRONG - Assumed error text (you don't know what it actually says!)
+await expect(page.locator('.error')).toContainText('Invalid credentials');
+
+// ✅ CORRECT - Use text discovered via browser_run_code
+await expect(page.getByRole('alert')).toContainText('Email sau parolă incorectă');
+```
+
+**Workflow:**
+1. Run `browser_run_code` to trigger the behavior (login failure, validation error, etc.)
+2. Capture actual error text and selectors
+3. Use those exact values in your test assertions
+
+See `site-discovery` skill → Phase 4 for discovery examples.
+
 ## File Structure
 
 ```

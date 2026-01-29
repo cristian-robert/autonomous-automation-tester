@@ -10,6 +10,177 @@ You are a senior QA automation engineer. When users ask you to test a website, y
 | "Explore [URL]" | Site discovery only | `site-discovery` + `mcp-client` |
 | "Create test cases for [URL]" | Design + push to Qase | `automation-tester` + `qase-client` |
 | "Automate the test cases" | Generate Playwright code | `test-generation` |
+| "Fix the failing test" | Debug + fix test | `test-fixer` + `mcp-client` |
+| *(Test fails after run)* | **Auto-trigger fix** | `test-fixer` (MANDATORY) |
+
+## CRITICAL: Playwright MCP Session Behavior
+
+**⚠️ EACH MCP CALL CREATES A NEW BROWSER SESSION. THE BROWSER CLOSES AFTER EACH CALL.**
+
+### What This Means
+
+```
+❌ WRONG - These are SEPARATE browser sessions:
+Call 1: browser_navigate → Opens browser, navigates, browser CLOSES
+Call 2: browser_click → Opens NEW browser (blank page!), click fails
+
+✅ CORRECT - Use browser_run_code for multi-step:
+Call 1: browser_run_code with ALL steps in one script
+```
+
+### The Rule
+
+| Need to do | Approach |
+|------------|----------|
+| Just load a page | `browser_navigate` (returns snapshot) |
+| Load + click | `browser_run_code` |
+| Load + accept cookies + interact | `browser_run_code` |
+| Login + get element on protected page | `browser_run_code` |
+| Any 2+ step flow | `browser_run_code` |
+
+### If You Need to Return to a State
+
+**You MUST redo ALL steps from the beginning.** The previous session is gone.
+
+Example: You logged in and captured some selectors. Now you need to check another element on the logged-in page.
+
+```
+❌ WRONG: Try to click on something (session is closed, you're on blank page)
+✅ CORRECT: Run browser_run_code that logs in AGAIN and then captures the element
+```
+
+### browser_run_code Template
+
+```bash
+python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
+  "code": "
+    // Step 1: Navigate
+    await page.goto(\"https://example.com\");
+
+    // Step 2: Handle cookies
+    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
+    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Step 3: Interact (login, click, fill forms, etc.)
+    await page.fill(\"input[type=email]\", \"user@example.com\");
+    await page.click(\"button[type=submit]\");
+
+    // Step 4: Wait for result
+    await page.waitForLoadState(\"networkidle\");
+
+    // Step 5: Return data you need
+    const snapshot = await page.accessibility.snapshot();
+    return JSON.stringify({ url: page.url(), snapshot }, null, 2);
+  "
+}'
+```
+
+**See `.claude/skills/mcp-client/SKILL.md` for complete documentation.**
+
+---
+
+## MANDATORY: Gather Behavioral Knowledge Before Writing Tests
+
+**Before writing ANY test that depends on UI behavior (error messages, validation, state changes), you MUST discover the actual behavior using Playwright.**
+
+### Why This is Mandatory
+
+You cannot assume:
+- What error message appears on failed login
+- How validation errors are displayed
+- What text/class/role error elements have
+- Whether errors appear inline, as toasts, or in alerts
+
+### Discovery Before Test Writing
+
+```
+❌ WRONG: Write test assuming error text is "Invalid credentials"
+   (You don't know what the actual error message is!)
+
+✅ CORRECT:
+   1. Use browser_run_code to trigger the error (e.g., submit bad login)
+   2. Capture the actual error message text and selector
+   3. Use that exact text/selector in your test
+```
+
+### Example: Discovering Login Error Behavior
+
+```bash
+python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
+  "code": "
+    await page.goto(\"https://example.com/login\");
+
+    // Handle cookies
+    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
+    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptBtn.click();
+    }
+
+    // Trigger login failure
+    await page.fill(\"input[type=email]\", \"fake@nonexistent.com\");
+    await page.fill(\"input[type=password]\", \"wrongpassword123\");
+    await page.click(\"button[type=submit]\");
+
+    // Wait for error to appear
+    await page.waitForTimeout(3000);
+
+    // Capture ALL error-related elements
+    const errors = await page.locator(\"[class*=error], [class*=Error], [role=alert], [data-testid*=error]\").evaluateAll(els =>
+      els.map(e => ({
+        text: e.textContent?.trim(),
+        className: e.className,
+        role: e.getAttribute(\"role\"),
+        testid: e.dataset?.testid,
+        tagName: e.tagName
+      }))
+    );
+
+    // Also check for toast notifications
+    const toasts = await page.locator(\"[class*=toast], [class*=notification], [class*=snackbar]\").evaluateAll(els =>
+      els.map(e => ({
+        text: e.textContent?.trim(),
+        className: e.className
+      }))
+    );
+
+    return JSON.stringify({ errors, toasts, url: page.url() }, null, 2);
+  "
+}'
+```
+
+**Output tells you exactly what to assert in your test:**
+```json
+{
+  "errors": [
+    {
+      "text": "Email sau parolă incorectă",
+      "className": "error-message",
+      "role": "alert"
+    }
+  ]
+}
+```
+
+**Then your test uses the ACTUAL values:**
+```typescript
+await expect(page.getByRole('alert')).toContainText('Email sau parolă incorectă');
+```
+
+### What to Discover for Different Test Types
+
+| Test Type | Discover First |
+|-----------|----------------|
+| Login failure | Error message text, error element selector |
+| Form validation | Validation message text, where it appears |
+| Empty field submit | HTML5 validation message or custom error |
+| Success states | Success message, redirect URL |
+| Loading states | Spinner/loading indicator selector |
+| Modal behavior | How modal opens, close button selector |
+
+---
 
 ## Skills Reference
 
@@ -21,13 +192,14 @@ You are a senior QA automation engineer. When users ask you to test a website, y
 | `site-discovery` | `.claude/skills/site-discovery/SKILL.md` | Exploring and mapping websites |
 | `automation-tester` | `.claude/skills/automation-tester/SKILL.md` | Test case design and prioritization |
 | `test-generation` | `.claude/skills/test-generation/SKILL.md` | **Generating Playwright code** |
+| `test-fixer` | `.claude/skills/test-fixer/SKILL.md` | **MANDATORY when tests fail** |
 | `qase-client` | `.claude/skills/qase-client/skill.md` | Qase.io integration |
 | `mcp-client` | `.claude/skills/mcp-client/SKILL.md` | Browser automation via MCP |
 
 ## Core Workflow
 
 ```
-CHECK EXISTING → DISCOVER → DESIGN → QASE → AUTOMATE → RUN
+CHECK EXISTING → DISCOVER → DESIGN → QASE → AUTOMATE → RUN → FIX (if needed)
 ```
 
 1. **CHECK EXISTING** (`qase-client`) - **MANDATORY FIRST STEP**: Search Qase for existing test cases
@@ -36,6 +208,39 @@ CHECK EXISTING → DISCOVER → DESIGN → QASE → AUTOMATE → RUN
 4. **QASE** (`qase-client`) - Push NEW suites and cases to Qase.io (avoid duplicates)
 5. **AUTOMATE** (`test-generation`) - Generate Page Objects + Test Specs
 6. **RUN** - Execute tests, results auto-report to Qase
+7. **FIX** (`test-fixer`) - **MANDATORY when any test fails**: Debug and fix failing tests
+
+## MANDATORY: Test Fixer on Failures
+
+**When ANY test fails, you MUST use the `test-fixer` skill before attempting manual fixes.**
+
+### Why This is Mandatory
+
+1. **Understand actual UI behavior** - Elements may have submenus, dropdowns, or multi-step flows
+2. **Capture real DOM state** - Selectors may have changed or be different from assumptions
+3. **Avoid guessing** - Navigate to the failing step and inspect what actually happens
+
+### Test Fixer Workflow
+
+```
+TEST FAILS → NAVIGATE TO PAGE → CAPTURE SNAPSHOT → UNDERSTAND BEHAVIOR → FIX CODE → VERIFY
+```
+
+1. Parse error message (file, line, selector, error type)
+2. Use MCP to navigate to the page: `browser_navigate` returns page + snapshot
+3. Analyze actual element names, roles, and behaviors
+4. **Key insight**: Understand multi-step interactions (e.g., click opens submenu → click "View all" to navigate)
+5. Update page object and/or test spec
+6. Re-run the single failing test to verify
+
+### Common Fixes
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Click doesn't navigate | Opens submenu/dropdown first | Add step to click final navigation link |
+| Element not found | Selector outdated | Update to match actual DOM |
+| Strict mode violation | Multiple matches | Add `.first()` or more specific selector |
+| Timeout | Element hidden by overlay | Dismiss cookie banner/popup first |
 
 ## MANDATORY: Page Object Pattern
 

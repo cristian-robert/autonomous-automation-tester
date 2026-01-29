@@ -61,16 +61,109 @@ python scripts/qase_client.py get-case PROJ <case_id>
 
 **Use:** `site-discovery` + `mcp-client` skills (Playwright server)
 
+> **⚠️ CRITICAL: Playwright Session Behavior**
+>
+> Each MCP call = new browser session. Browser CLOSES after each call.
+> Use `browser_run_code` for any multi-step exploration.
+> If you need to explore multiple pages, each exploration is a FRESH session.
+
 ```
-1. Navigate to homepage (browser_navigate)
-2. Take snapshot (browser_snapshot)
-3. Extract navigation links
-4. Visit each main section (max 20 pages for smoke)
-5. Classify each page type
-6. Document auth requirements
+1. Use browser_run_code to:
+   - Navigate to homepage
+   - Accept cookies
+   - Extract all links + snapshot
+2. For each subpage, use browser_run_code AGAIN (session closed!):
+   - Navigate to URL
+   - Accept cookies AGAIN
+   - Capture snapshot
+3. Classify each page type
+4. Document auth requirements
+```
+
+**Example for homepage:**
+```bash
+python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
+  "code": "
+    await page.goto(\"https://example.com\");
+
+    // Handle cookies (every session needs this!)
+    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
+    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Extract navigation
+    const navLinks = await page.locator(\"nav a\").evaluateAll(els =>
+      els.map(e => ({ text: e.textContent?.trim(), href: e.href }))
+    );
+
+    const snapshot = await page.accessibility.snapshot();
+    return JSON.stringify({ navLinks, snapshot }, null, 2);
+  "
+}'
 ```
 
 **Output:** Site map with classified pages
+
+## Phase 1.5: DISCOVER BEHAVIORAL DATA (For Negative Tests)
+
+**MANDATORY before designing negative tests!** You must discover actual error messages, validation behavior, and UI states.
+
+**Goal:** Capture real error messages, validation text, and behavioral data
+
+**Use:** `mcp-client` skill with `browser_run_code`
+
+**What to discover:**
+
+| Test Type | Trigger | Capture |
+|-----------|---------|---------|
+| Login failure | Submit wrong credentials | Error message text, selector |
+| Empty field | Submit empty form | Validation message, type (HTML5 or custom) |
+| Invalid email | Submit malformed email | Validation message |
+| Success redirect | Complete valid action | Redirect URL pattern |
+
+**Example - Discover login error:**
+```bash
+python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
+  "code": "
+    await page.goto(\"https://example.com/login\");
+
+    // Cookies
+    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
+    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptBtn.click();
+    }
+
+    // Trigger error
+    await page.fill(\"input[type=email]\", \"fake@test.com\");
+    await page.fill(\"input[type=password]\", \"wrongpass\");
+    await page.click(\"button[type=submit]\");
+    await page.waitForTimeout(3000);
+
+    // Capture error elements
+    const errors = await page.locator(\"[class*=error], [role=alert]\").evaluateAll(els =>
+      els.map(e => ({ text: e.textContent?.trim(), role: e.getAttribute(\"role\") }))
+    );
+
+    return JSON.stringify({ errors }, null, 2);
+  "
+}'
+```
+
+**Output:** Behavioral data to use in test assertions
+```json
+{
+  "errors": [{ "text": "Email sau parolă incorectă", "role": "alert" }]
+}
+```
+
+**Use discovered values in tests:**
+```typescript
+// DON'T: await expect(page.locator('.error')).toContainText('Invalid credentials');
+// DO: Use the ACTUAL discovered text
+await expect(page.getByRole('alert')).toContainText('Email sau parolă incorectă');
+```
 
 ## Phase 2: DESIGN
 
@@ -184,10 +277,20 @@ python qase_client.py complete-run PROJ 1
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
+│ PHASE 1.5: DISCOVER BEHAVIORAL DATA (MANDATORY for neg)     │
+│ • Trigger error states (bad login, validation, etc.)        │
+│ • Capture ACTUAL error messages and selectors               │
+│ • Document success/failure behaviors                        │
+│ Output: Real text/selectors for test assertions             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
 │ PHASE 2: DESIGN                                             │
 │ • Apply test patterns by page type                          │
 │ • Assign P0/P1/P2 priorities                                │
 │ • Group into suites (skip existing cases)                   │
+│ • Use discovered text for negative test assertions          │
 │ Output: Test case specifications (gaps only)                │
 └─────────────────────────────────────────────────────────────┘
                               │
