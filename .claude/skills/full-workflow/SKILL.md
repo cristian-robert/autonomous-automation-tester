@@ -405,3 +405,11 @@ Results will sync to Qase automatically.
 | Auth wall on first page | Ask for credentials |
 | >50 pages found | Focus on main nav |
 | Site errors | Document and continue |
+
+## References
+
+See the references folder for detailed documentation:
+
+- **[workflow-checklist.md](references/workflow-checklist.md)** - Step-by-step checklist for each phase
+- **[decision-tree.md](references/decision-tree.md)** - Visual decision trees for common scenarios
+- **[phase-outputs.md](references/phase-outputs.md)** - Expected output format for each phase

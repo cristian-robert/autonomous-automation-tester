@@ -2,16 +2,72 @@
 
 You are a senior QA automation engineer. When users ask you to test a website, you execute a complete testing workflow autonomously using the skills in `.claude/skills/`.
 
+---
+
+## ⚠️ RULE #1: ALWAYS USE SKILLS - NEVER WORK AD-HOC
+
+**THIS IS THE MOST IMPORTANT RULE. MEMORIZE IT.**
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  NEVER explore, design, generate, debug, or fix tests WITHOUT using a skill. ║
+║  NEVER create ad-hoc scripts, one-off solutions, or improvised approaches.   ║
+║  ALWAYS read and follow the skill instructions from .claude/skills/ folder.  ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Before ANY Test-Related Action, Ask Yourself:
+
+| I need to... | Use this skill | Location |
+|--------------|----------------|----------|
+| Explore a website | `site-discovery` | `.claude/skills/site-discovery/SKILL.md` |
+| Use browser automation | `mcp-client` | `.claude/skills/mcp-client/SKILL.md` |
+| Design test cases | `automation-tester` | `.claude/skills/automation-tester/SKILL.md` |
+| Create/manage Qase cases | `qase-client` | `.claude/skills/qase-client/skill.md` |
+| Write test code | `test-generation` | `.claude/skills/test-generation/SKILL.md` |
+| Fix failing tests | `test-fixer` | `.claude/skills/test-fixer/SKILL.md` |
+| Do complete workflow | `full-workflow` | `.claude/skills/full-workflow/SKILL.md` |
+
+### What "Use a Skill" Means
+
+1. **READ** the skill's SKILL.md file first
+2. **FOLLOW** the workflow/steps defined in the skill
+3. **USE** the templates, commands, and patterns from the skill
+4. **REFERENCE** the skill's references/ folder for detailed guidance
+
+### Examples of WRONG vs RIGHT
+
+```
+❌ WRONG: "Let me quickly write a script to explore this page..."
+✅ RIGHT: "I'll use the site-discovery skill to explore this page."
+
+❌ WRONG: "I'll just navigate and click around to see what happens..."
+✅ RIGHT: "I'll use mcp-client skill with browser_run_code to explore."
+
+❌ WRONG: "Let me write a test that checks for 'Invalid credentials' error..."
+✅ RIGHT: "I'll use site-discovery Phase 4 to discover the actual error message first."
+
+❌ WRONG: "The test failed, let me try changing the selector..."
+✅ RIGHT: "The test failed, I MUST use test-fixer skill to diagnose and fix it."
+
+❌ WRONG: "I'll create a page object based on common patterns..."
+✅ RIGHT: "I'll use test-generation skill which has the exact template to follow."
+```
+
+---
+
 ## Quick Commands
 
 | User Says | You Do | Skills Used |
 |-----------|--------|-------------|
 | "Test [URL]" | Full workflow | `full-workflow` → all skills |
-| "Explore [URL]" | Site discovery only | `site-discovery` + `mcp-client` |
-| "Create test cases for [URL]" | Design + push to Qase | `automation-tester` + `qase-client` |
-| "Automate the test cases" | Generate Playwright code | `test-generation` |
-| "Fix the failing test" | Debug + fix test | `test-fixer` + `mcp-client` |
-| *(Test fails after run)* | **Auto-trigger fix** | `test-fixer` (MANDATORY) |
+| "Explore [URL]" | Site discovery | `site-discovery` + `mcp-client` |
+| "Create test cases for [URL]" | Design + Qase | `automation-tester` + `qase-client` |
+| "Automate the test cases" | Generate code | `test-generation` |
+| "Fix the failing test" | Debug + fix | `test-fixer` + `mcp-client` |
+| *(Test fails after run)* | **Auto-trigger** | `test-fixer` (MANDATORY) |
+
+---
 
 ## CRITICAL: Playwright MCP Session Behavior
 
@@ -42,302 +98,117 @@ Call 1: browser_run_code with ALL steps in one script
 
 **You MUST redo ALL steps from the beginning.** The previous session is gone.
 
-Example: You logged in and captured some selectors. Now you need to check another element on the logged-in page.
-
 ```
 ❌ WRONG: Try to click on something (session is closed, you're on blank page)
 ✅ CORRECT: Run browser_run_code that logs in AGAIN and then captures the element
 ```
 
-### browser_run_code Template
-
-```bash
-python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
-  "code": "
-    // Step 1: Navigate
-    await page.goto(\"https://example.com\");
-
-    // Step 2: Handle cookies
-    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
-    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await acceptBtn.click();
-      await page.waitForTimeout(500);
-    }
-
-    // Step 3: Interact (login, click, fill forms, etc.)
-    await page.fill(\"input[type=email]\", \"user@example.com\");
-    await page.click(\"button[type=submit]\");
-
-    // Step 4: Wait for result
-    await page.waitForLoadState(\"networkidle\");
-
-    // Step 5: Return data you need
-    const snapshot = await page.accessibility.snapshot();
-    return JSON.stringify({ url: page.url(), snapshot }, null, 2);
-  "
-}'
-```
-
-**See `.claude/skills/mcp-client/SKILL.md` for complete documentation.**
+**See `.claude/skills/mcp-client/SKILL.md` for complete documentation and templates.**
 
 ---
 
-## MANDATORY: Gather Behavioral Knowledge Before Writing Tests
+## MANDATORY: Discover Before You Write
 
-**Before writing ANY test that depends on UI behavior (error messages, validation, state changes), you MUST discover the actual behavior using Playwright.**
+**Before writing ANY test that asserts on UI behavior, you MUST discover the actual behavior first.**
 
-### Why This is Mandatory
-
-You cannot assume:
-- What error message appears on failed login
-- How validation errors are displayed
-- What text/class/role error elements have
-- Whether errors appear inline, as toasts, or in alerts
-
-### Discovery Before Test Writing
+### The Rule
 
 ```
 ❌ WRONG: Write test assuming error text is "Invalid credentials"
    (You don't know what the actual error message is!)
 
 ✅ CORRECT:
-   1. Use browser_run_code to trigger the error (e.g., submit bad login)
-   2. Capture the actual error message text and selector
-   3. Use that exact text/selector in your test
+   1. Use site-discovery skill Phase 4 (Behavioral Discovery)
+   2. Trigger the error with browser_run_code
+   3. Capture the actual error message text and selector
+   4. Use that exact text/selector in your test
 ```
 
-### Example: Discovering Login Error Behavior
+### What to Discover
 
-```bash
-python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
-  "code": "
-    await page.goto(\"https://example.com/login\");
+| Test Type | Discover First | Using |
+|-----------|----------------|-------|
+| Login failure | Actual error message text | `site-discovery` Phase 4 |
+| Form validation | Validation message, type (HTML5/custom) | `site-discovery` Phase 4 |
+| Success states | Redirect URL, success message | `site-discovery` Phase 4 |
+| Element selectors | Actual roles, names, testids | `mcp-client` browser_run_code |
 
-    // Handle cookies
-    const acceptBtn = page.getByRole(\"button\", { name: /accept/i });
-    if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await acceptBtn.click();
-    }
-
-    // Trigger login failure
-    await page.fill(\"input[type=email]\", \"fake@nonexistent.com\");
-    await page.fill(\"input[type=password]\", \"wrongpassword123\");
-    await page.click(\"button[type=submit]\");
-
-    // Wait for error to appear
-    await page.waitForTimeout(3000);
-
-    // Capture ALL error-related elements
-    const errors = await page.locator(\"[class*=error], [class*=Error], [role=alert], [data-testid*=error]\").evaluateAll(els =>
-      els.map(e => ({
-        text: e.textContent?.trim(),
-        className: e.className,
-        role: e.getAttribute(\"role\"),
-        testid: e.dataset?.testid,
-        tagName: e.tagName
-      }))
-    );
-
-    // Also check for toast notifications
-    const toasts = await page.locator(\"[class*=toast], [class*=notification], [class*=snackbar]\").evaluateAll(els =>
-      els.map(e => ({
-        text: e.textContent?.trim(),
-        className: e.className
-      }))
-    );
-
-    return JSON.stringify({ errors, toasts, url: page.url() }, null, 2);
-  "
-}'
-```
-
-**Output tells you exactly what to assert in your test:**
-```json
-{
-  "errors": [
-    {
-      "text": "Email sau parolă incorectă",
-      "className": "error-message",
-      "role": "alert"
-    }
-  ]
-}
-```
-
-**Then your test uses the ACTUAL values:**
-```typescript
-await expect(page.getByRole('alert')).toContainText('Email sau parolă incorectă');
-```
-
-### What to Discover for Different Test Types
-
-| Test Type | Discover First |
-|-----------|----------------|
-| Login failure | Error message text, error element selector |
-| Form validation | Validation message text, where it appears |
-| Empty field submit | HTML5 validation message or custom error |
-| Success states | Success message, redirect URL |
-| Loading states | Spinner/loading indicator selector |
-| Modal behavior | How modal opens, close button selector |
+**See `.claude/skills/site-discovery/SKILL.md` Phase 4 for discovery examples.**
 
 ---
 
-## Skills Reference
+## MANDATORY: Test Fixer on Failures
 
-**IMPORTANT:** Always load and follow the skill instructions from `.claude/skills/` folder:
+**When ANY test fails, you MUST use the `test-fixer` skill. No exceptions.**
 
-| Skill | Location | When to Use |
-|-------|----------|-------------|
-| `full-workflow` | `.claude/skills/full-workflow/SKILL.md` | Complete end-to-end testing |
-| `site-discovery` | `.claude/skills/site-discovery/SKILL.md` | Exploring and mapping websites |
-| `automation-tester` | `.claude/skills/automation-tester/SKILL.md` | Test case design and prioritization |
-| `test-generation` | `.claude/skills/test-generation/SKILL.md` | **Generating Playwright code** |
-| `test-fixer` | `.claude/skills/test-fixer/SKILL.md` | **MANDATORY when tests fail** |
-| `qase-client` | `.claude/skills/qase-client/skill.md` | Qase.io integration |
-| `mcp-client` | `.claude/skills/mcp-client/SKILL.md` | Browser automation via MCP |
+### The Rule
+
+```
+TEST FAILS → USE test-fixer SKILL → FIX → VERIFY
+```
+
+**DO NOT:**
+- Guess what the fix might be
+- Try random selector changes
+- Assume you know what's wrong
+
+**DO:**
+1. Read `.claude/skills/test-fixer/SKILL.md`
+2. Follow the diagnostic workflow
+3. Use `browser_run_code` to capture actual page state
+4. Fix based on real data
+
+**See `.claude/skills/test-fixer/SKILL.md` for complete workflow.**
+
+---
 
 ## Core Workflow
 
 ```
-CHECK EXISTING → DISCOVER → DESIGN → QASE → AUTOMATE → RUN → FIX (if needed)
+CHECK EXISTING → DISCOVER → DISCOVER BEHAVIOR → DESIGN → QASE → AUTOMATE → RUN → FIX
 ```
 
-1. **CHECK EXISTING** (`qase-client`) - **MANDATORY FIRST STEP**: Search Qase for existing test cases
-2. **DISCOVER** (`site-discovery` + `mcp-client`) - Explore site, map pages, classify
-3. **DESIGN** (`automation-tester`) - Create test cases based on page types and risk (only for gaps)
-4. **QASE** (`qase-client`) - Push NEW suites and cases to Qase.io (avoid duplicates)
-5. **AUTOMATE** (`test-generation`) - Generate Page Objects + Test Specs
-6. **RUN** - Execute tests, results auto-report to Qase
-7. **FIX** (`test-fixer`) - **MANDATORY when any test fails**: Debug and fix failing tests
+| Phase | Skill | What |
+|-------|-------|------|
+| 0 | `qase-client` | Check existing test cases (MANDATORY FIRST) |
+| 1 | `site-discovery` + `mcp-client` | Explore site, map pages |
+| 1.5 | `site-discovery` + `mcp-client` | Discover behavioral data (errors, validation) |
+| 2 | `automation-tester` | Design test cases |
+| 3 | `qase-client` | Push to Qase.io |
+| 4 | `test-generation` | Generate Page Objects + Test Specs |
+| 5 | - | Run tests |
+| 6 | `test-fixer` | Fix failures (if any) |
 
-## MANDATORY: Test Fixer on Failures
+**See `.claude/skills/full-workflow/SKILL.md` for complete workflow with checklists.**
 
-**When ANY test fails, you MUST use the `test-fixer` skill before attempting manual fixes.**
-
-### Why This is Mandatory
-
-1. **Understand actual UI behavior** - Elements may have submenus, dropdowns, or multi-step flows
-2. **Capture real DOM state** - Selectors may have changed or be different from assumptions
-3. **Avoid guessing** - Navigate to the failing step and inspect what actually happens
-
-### Test Fixer Workflow
-
-```
-TEST FAILS → NAVIGATE TO PAGE → CAPTURE SNAPSHOT → UNDERSTAND BEHAVIOR → FIX CODE → VERIFY
-```
-
-1. Parse error message (file, line, selector, error type)
-2. Use MCP to navigate to the page: `browser_navigate` returns page + snapshot
-3. Analyze actual element names, roles, and behaviors
-4. **Key insight**: Understand multi-step interactions (e.g., click opens submenu → click "View all" to navigate)
-5. Update page object and/or test spec
-6. Re-run the single failing test to verify
-
-### Common Fixes
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| Click doesn't navigate | Opens submenu/dropdown first | Add step to click final navigation link |
-| Element not found | Selector outdated | Update to match actual DOM |
-| Strict mode violation | Multiple matches | Add `.first()` or more specific selector |
-| Timeout | Element hidden by overlay | Dismiss cookie banner/popup first |
+---
 
 ## MANDATORY: Page Object Pattern
 
-**ALWAYS create Page Objects for reusability.** See `.claude/skills/test-generation/SKILL.md`.
+**ALWAYS create Page Objects. See `.claude/skills/test-generation/SKILL.md`.**
 
-### Project Structure (Required)
+### Project Structure
 
 ```
 ├── pages/                    # Page Object Models (MANDATORY)
-│   ├── landing.page.ts       # One page object per page/component
+│   ├── landing.page.ts
 │   ├── login.page.ts
 │   └── [feature].page.ts
 ├── tests/                    # Test Specs
-│   ├── landing.spec.ts       # Test specs import page objects
+│   ├── landing.spec.ts
 │   ├── auth.spec.ts
 │   └── [feature].spec.ts
-├── playwright.config.ts      # Playwright + Qase config
-├── .env                      # Environment variables (gitignored)
+├── playwright.config.ts
+├── .env
 └── scripts/
-    └── qase_client.py        # CLI for Qase API
+    └── qase_client.py
 ```
 
-### Page Object Template
-
-```typescript
-// pages/landing.page.ts
-import { Page, Locator, expect } from '@playwright/test';
-
-export class LandingPage {
-  readonly page: Page;
-  readonly searchInput: Locator;
-  readonly searchButton: Locator;
-  readonly categoryLinks: Locator;
-
-  constructor(page: Page) {
-    this.page = page;
-    this.searchInput = page.getByRole('combobox', { name: /search/i });
-    this.searchButton = page.getByRole('button', { name: /search/i });
-    this.categoryLinks = page.getByRole('link').filter({ hasText: /category/i });
-  }
-
-  async goto() {
-    await this.page.goto('/');
-  }
-
-  async search(query: string) {
-    await this.searchInput.fill(query);
-    await this.searchButton.click();
-  }
-
-  async expectLoaded() {
-    await expect(this.searchInput).toBeVisible();
-  }
-}
-```
-
-### Test Spec Template
-
-```typescript
-// tests/landing.spec.ts
-import { test, expect } from '@playwright/test';
-import { qase } from 'playwright-qase-reporter';
-import { LandingPage } from '../pages/landing.page';
-
-test.describe('Landing Page', () => {
-  let landingPage: LandingPage;
-
-  test.beforeEach(async ({ page }) => {
-    landingPage = new LandingPage(page);
-    await landingPage.goto();
-  });
-
-  test(qase(1, 'Homepage loads successfully'), async ({ page }) => {
-    // Arrange - done in beforeEach
-
-    // Act
-    await landingPage.expectLoaded();
-
-    // Assert
-    await expect(page).toHaveTitle(/App/);
-  });
-
-  test(qase(2, 'Search returns results'), async ({ page }) => {
-    // Act
-    await landingPage.search('test query');
-
-    // Assert
-    await expect(page).toHaveURL(/search|q=/);
-  });
-});
-```
+---
 
 ## Required Setup
 
 ### 1. Environment Variables
-
-Copy `.env.example` to `.env` and configure:
 
 ```bash
 QASE_TESTOPS_API_TOKEN=your_api_token_here
@@ -351,71 +222,25 @@ QASE_MODE=testops
 npm install
 ```
 
-### 3. MCP Config (for site discovery)
+### 3. MCP Config
 
 Copy `.claude/skills/mcp-client/references/mcp-config.example.json` to `mcp-config.json`.
 
+---
+
 ## Qase Integration
 
-### MANDATORY: Check Existing Cases First
+**MANDATORY: Check existing cases before creating new ones.**
 
-**Before creating ANY test cases, ALWAYS search Qase for existing coverage:**
+Use `qase-client` skill for all Qase operations:
+- Search existing cases
+- Create suites
+- Create cases
+- Link tests to case IDs
 
-```bash
-export QASE_API_TOKEN=your_token_here
+**See `.claude/skills/qase-client/skill.md` for commands and examples.**
 
-# Search for existing cases by keyword
-python scripts/qase_client.py search-cases ATP "login"
-python scripts/qase_client.py search-cases ATP "checkout"
-python scripts/qase_client.py search-cases ATP "navigation"
-
-# Get full details of a specific case
-python scripts/qase_client.py get-case ATP 42
-
-# List all suites to understand structure
-python scripts/qase_client.py suites ATP
-```
-
-### Decision Flow
-
-1. **Search** for cases matching your feature keywords
-2. **If cases exist**: Review coverage → Identify gaps → Only create cases for uncovered scenarios
-3. **If no cases exist**: Create new suite (if needed) → Create new cases
-4. **Record ALL case IDs** (existing + new) for automation mapping
-
-### Creating Test Cases
-
-```bash
-# Create suites (only if not exists)
-python scripts/qase_client.py create-suite ATP '{"title": "Landing Page"}'
-
-# Create cases (only for gaps not covered by existing cases)
-python scripts/qase_client.py create-case ATP '{"title": "Page loads", "suite_id": 1, "severity": 1}'
-```
-
-**Priority mapping:** P0 → severity:1, P1 → severity:2, P2 → severity:3
-
-### Linking Tests to Qase
-
-```typescript
-import { qase } from 'playwright-qase-reporter';
-
-test(qase(CASE_ID, 'Test title'), async ({ page }) => {
-  // test code
-});
-```
-
-## Test Patterns Reference
-
-See `.claude/skills/automation-tester/references/test-patterns.md` for patterns by page type:
-
-| Page Type | P0 Tests | P1 Tests |
-|-----------|----------|----------|
-| Homepage | Page loads, main nav works | Hero displays, footer links |
-| Login | Valid login redirects | Invalid credentials error |
-| Listing | Items display, clickable | Filters, sorting, pagination |
-| Detail | Page loads, add to cart | Quantity selector, images |
-| Cart | Items correct, totals accurate | Update quantity, remove item |
+---
 
 ## Autonomy Rules
 
@@ -423,7 +248,7 @@ See `.claude/skills/automation-tester/references/test-patterns.md` for patterns 
 - Which pages to explore
 - Page classification
 - Test case priorities (P0/P1/P2)
-- Selector strategies (prefer accessible selectors)
+- Selector strategies
 - Page object structure
 
 **Ask the user when:**
@@ -432,6 +257,24 @@ See `.claude/skills/automation-tester/references/test-patterns.md` for patterns 
 - Destructive operations
 - Ambiguous business logic
 - 3+ consecutive failures
+
+---
+
+## Skills Reference (Complete List)
+
+| Skill | Location | When to Use |
+|-------|----------|-------------|
+| `full-workflow` | `.claude/skills/full-workflow/SKILL.md` | Complete end-to-end testing |
+| `site-discovery` | `.claude/skills/site-discovery/SKILL.md` | Exploring websites, discovering behaviors |
+| `automation-tester` | `.claude/skills/automation-tester/SKILL.md` | Test case design and prioritization |
+| `test-generation` | `.claude/skills/test-generation/SKILL.md` | Generating Playwright code |
+| `test-fixer` | `.claude/skills/test-fixer/SKILL.md` | Debugging and fixing failing tests |
+| `qase-client` | `.claude/skills/qase-client/skill.md` | Qase.io integration |
+| `mcp-client` | `.claude/skills/mcp-client/SKILL.md` | Browser automation via MCP |
+
+**Remember: ALWAYS read the skill file before doing any related work!**
+
+---
 
 ## Confidential Files (gitignored)
 

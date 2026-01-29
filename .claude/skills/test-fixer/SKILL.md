@@ -346,9 +346,18 @@ npx playwright test tests/olx-landing.spec.ts:45
 | Modal closes on outside click | Requires explicit close button | Click the close/X button |
 | Page loads immediately | Redirect to different domain | Add `waitForURL` with correct domain pattern |
 
+## References
+
+See **[references/error-patterns.md](references/error-patterns.md)** for detailed diagnosis and fixes for:
+- Timeout errors (selector, URL)
+- Strict mode violations
+- Assertion failures (text, URL)
+- Element state errors (not visible, disabled)
+- Navigation issues
+
 ## Quick Debug Script
 
-For complex debugging, create a quick exploration script:
+For complex debugging, use this exploration script:
 
 ```bash
 python .claude/skills/mcp-client/scripts/mcp_client.py call playwright browser_run_code '{
